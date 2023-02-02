@@ -6,6 +6,6 @@ usethis::create_github_token()
 
 
 
-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
+
 
 usethis::use_github()
