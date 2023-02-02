@@ -6,6 +6,4 @@ usethis::create_github_token()
 
 
 
-
-
 usethis::use_github()
