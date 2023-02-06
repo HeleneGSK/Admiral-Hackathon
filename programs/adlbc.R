@@ -5,6 +5,7 @@ library(tidyr)
 library(metacore)
 library(metatools)
 library(xportr)
+library("stringr")
 
 lb <- read_xpt("sdtm/lb.xpt")
 lb <- convert_blanks_to_na(lb)
