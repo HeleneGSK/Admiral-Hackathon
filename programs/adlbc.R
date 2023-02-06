@@ -66,6 +66,61 @@ param_lookup <- tibble::tribble(
 adsl <- read_xpt("adam/adsl.xpt")
 
 
+# Derivations ----
 
-use_ad_template(adlb)
-xportr_write(adlbc, "adam/adlbc.xpt")
+# Get list of ADSL vars required for derivations
+# adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, AGEGR1, AGEGR1N, COMP24FL,
+#                   DSRAEFL, RACE, RACEN,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
+adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, COMP24FL,
+                  DSRAEFL, RACE,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
+
+adlb <- lb1 %>%
+  # Join ADSL with LB (need TRTSDT for ADY derivation)
+  derive_vars_merged(
+    dataset_add = adsl,
+    new_vars = adsl_vars,
+    by_vars = vars(STUDYID, USUBJID)
+  )%>%
+  ## Calculate ADT, ADY ----
+derive_vars_dt(
+  new_vars_prefix = "A",
+  dtc = LBDTC
+) %>%
+  derive_vars_dy(reference_date = TRTSDT, source_vars = vars(ADT))
+
+adlb <- adlb %>%
+  ## Add PARAMCD PARAM and PARAMN - from LOOK-UP table ----
+# Replace with PARAMCD lookup function
+derive_vars_merged_lookup(
+  dataset_add = param_lookup,
+  new_vars = vars(PARAMCD, PARAM, PARAMN),
+  by_vars = vars(LBTESTCD),
+  check_type = "none",
+  print_not_mapped = FALSE
+)%>%
+  ## Calculate PARCAT1 AVAL AVALC ANRLO ANRHI ----
+mutate(
+  PARCAT1 = 'CHEM',
+  AVAL = LBSTRESN,
+  AVALC = LBSTRESC,
+  A1LO = LBSTNRLO,
+  A1HI = LBSTNRHI
+)
+
+adlb <- adlb %>%
+  # Derive Timing
+  mutate(
+    AVISIT = case_when(
+      str_detect(VISIT, "SCREENING 1") ~ "Baseline",
+      !is.na(VISIT) ~ str_to_title(VISIT),
+      TRUE ~ NA_character_
+    ),
+    AVISITN = case_when(
+      AVISIT == "Baseline" ~ 0,
+      !is.na(VISITNUM) ~ VISITNUM
+    )
+  )
+
+
+
+# xportr_write(adlbc, "adam/adlbc.xpt")
