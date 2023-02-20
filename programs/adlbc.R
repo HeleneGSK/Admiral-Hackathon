@@ -148,6 +148,7 @@ adlb <- adlb %>%
 adlb %>%
   mutate(ABLFL = if_else(VISITNUM==1, 'Y', ''))
 
+
 ## Derive baseline information ----
 adlb <- adlb %>%
   # Calculate BASE
