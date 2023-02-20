@@ -105,7 +105,9 @@ mutate(
   AVAL = LBSTRESN,
   AVALC = LBSTRESC,
   A1LO = LBSTNRLO,
-  A1HI = LBSTNRHI
+  A1HI = LBSTNRHI,
+  ANRLO = LBSTNRLO,
+  ANRHI = LBSTNRHI
 )
 
 adlb <- adlb %>%
@@ -122,6 +124,54 @@ adlb <- adlb %>%
     )
   )
 
+## Calculate ANRIND : requires the reference ranges ANRLO, ANRHI ----
+adlb <- adlb %>%
+  derive_var_anrind()
+
+## Derive baseline flags ----
+# adlb <- adlb %>%
+#   # Calculate BASETYPE
+#   mutate(
+#     BASETYPE = "LAST"
+#   ) %>%
+#   # Calculate ABLFL
+#   restrict_derivation(
+#     derivation = derive_var_extreme_flag,
+#     args = params(
+#       by_vars = vars(STUDYID, USUBJID, BASETYPE, PARAMCD),
+#       order = vars(ADT, VISITNUM, LBSEQ),
+#       new_var = ABLFL,
+#       mode = "last"
+#     ),
+#     filter = (!is.na(AVAL) & ADT <= TRTSDT & !is.na(BASETYPE))
+#   )
+adlb %>%
+  mutate(ABLFL = if_else(VISITNUM==1, 'Y', ''))
+
+## Derive baseline information ----
+adlb <- adlb %>%
+  # Calculate BASE
+  derive_var_base(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    source_var = AVAL,
+    new_var = BASE
+  ) %>%
+  # Calculate BASEC
+  derive_var_base(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    source_var = AVALC,
+    new_var = BASEC
+  ) %>%
+  # Calculate BNRIND
+  derive_var_base(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    source_var = ANRIND,
+    new_var = BNRIND
+  ) %>%
+  # Calculate CHG
+  derive_var_chg() %>%
+  # Calculate PCHG
+  derive_var_pchg()
 
 
 # xportr_write(adlbc, "adam/adlbc.xpt")
