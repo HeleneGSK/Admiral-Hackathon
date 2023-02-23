@@ -126,6 +126,8 @@ mutate(
   ANRLO = LBSTNRLO,
   ANRHI = LBSTNRHI
 )
+# Verification
+# adlb_t <- adlb %>% select(USUBJID,PARCAT1,PARAMCD,LBSTRESN,AVAL,LBSTRESC,AVALC,LBSTNRLO,ANRLO,LBSTNRHI,ANRHI)
 
 # Derive Absolute values from fractional Differentials using WBC
 # Only derive where absolute values do not already exist
