@@ -106,9 +106,27 @@ mutate(
   AVALC = LBSTRESC,
   A1LO = LBSTNRLO,
   A1HI = LBSTNRHI,
-  ANRLO = LBSTNRLO,
-  ANRHI = LBSTNRHI
+  ANRLO = 0.5*LBSTNRLO,
+  ANRHI = 1.5*LBSTNRHI,
+  TRTP = TRT01P,
+  TRTPN = TRT01PN,
+  TRTA = TRT01A,
+  TRTAN = TRT01AN
 )
+
+adlb <- adlb %>%
+  mutate(ALBTRVAL= max(((1.5*A1HI)-LBSTRESN) , (LBSTRESN-(.5*A1LO)))
+)
+
+adlb <- adlb %>%
+  mutate(
+    RACEN = case_when(
+      RACE == 'AMERICAN INDIAN OR ALASKA NATIVE' ~ 6,
+      RACE == 'ASIAN' ~ 3,
+      RACE == 'BLACK OR AFRICAN AMERICAN' ~ 2,
+      RACE == 'WHITE' ~ 1
+    )
+  )
 
 adlb <- adlb %>%
   # Derive Timing
@@ -123,6 +141,10 @@ adlb <- adlb %>%
       !is.na(VISITNUM) ~ VISITNUM
     )
   )
+adlb <- adlb %>%
+  filter(VISITNUM != 6,
+         VISITNUM != 201)
+
 
 ## Calculate ANRIND : requires the reference ranges ANRLO, ANRHI ----
 adlb <- adlb %>%
@@ -145,27 +167,30 @@ adlb <- adlb %>%
 #     ),
 #     filter = (!is.na(AVAL) & ADT <= TRTSDT & !is.na(BASETYPE))
 #   )
-adlb %>%
+adlb <- adlb %>%
   mutate(ABLFL = if_else(VISITNUM==1, 'Y', ''))
 
+adlb <- adlb %>%
+  mutate(R2A1HI = AVAL/A1LO,
+         R2A1LO = AVAL/A1HI)
 
 ## Derive baseline information ----
 adlb <- adlb %>%
   # Calculate BASE
   derive_var_base(
-    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    by_vars = vars(STUDYID, USUBJID, PARAMCD),
     source_var = AVAL,
     new_var = BASE
   ) %>%
   # Calculate BASEC
   derive_var_base(
-    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    by_vars = vars(STUDYID, USUBJID, PARAMCD),
     source_var = AVALC,
     new_var = BASEC
   ) %>%
   # Calculate BNRIND
   derive_var_base(
-    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    by_vars = vars(STUDYID, USUBJID, PARAMCD),
     source_var = ANRIND,
     new_var = BNRIND
   ) %>%
@@ -174,5 +199,108 @@ adlb <- adlb %>%
   # Calculate PCHG
   derive_var_pchg()
 
+adlb <- adlb %>%
+  mutate(BR2A1HI = BASE/A1LO,
+         BR2A1LO = BASE/A1HI)
 
-# xportr_write(adlbc, "adam/adlbc.xpt")
+adlb <- adlb %>%
+
+  # Calculate AENTMTFL
+  restrict_derivation(
+    derivation = derive_var_extreme_flag,
+    args = params(
+      by_vars = vars(STUDYID, USUBJID,  PARAMCD),
+      order = vars(ADT, VISITNUM, LBSEQ),
+      new_var = AENTMTFL,
+      mode = "last"
+    ),
+    filter = (!is.na(AVAL) & VISITNUM <= 12 &  VISITNUM >= 2)
+  )
+
+adlb <- adlb %>%
+
+  # Calculate ANL01FL
+  restrict_derivation(
+    derivation = derive_var_extreme_flag,
+    args = params(
+      by_vars = vars(STUDYID, USUBJID,  PARAMCD),
+      order = vars(ADT, VISITNUM, LBSEQ),
+      new_var = ANL01FL,
+      mode = "last"
+    ),
+    filter = (!is.na(AVAL) & VISITNUM <= 12 &  VISITNUM >= 2)
+  )
+
+adlb <- adlb %>%
+
+  # get MAXIMUM value
+  derive_extreme_records(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD),
+    order = vars(desc(ALBTRVAL), ADT, AVISITN),
+    mode = "first",
+    filter = (!is.na(ALBTRVAL) & VISITNUM >= 2),
+    set_values_to = vars(
+      ANL01FL = 'Y'
+    )
+  )
+
+adlb <- adlb %>%
+  # get MAXIMUM value
+  derive_extreme_records(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD),
+    order = vars( ADT, AVISITN),
+    mode = "last",
+    filter = (!is.na(AVAL) & VISITNUM >= 2 & AVISITN <= 12),
+    set_values_to = vars(
+      AVISITN = 99,
+      AVISIT = "End of Treatment",
+    )
+  )
+
+adlbc <- select(adlb,
+                STUDYID,
+                SUBJID,
+                USUBJID,
+                TRTP,
+                TRTPN,
+                TRTA,
+                TRTAN,
+                TRTSDT,
+                TRTEDT,
+                AGE,
+                # AGEGR1,
+                # AGEGR1N,
+                RACE,
+                RACEN,
+                SEX,
+                COMP24FL,
+                DSRAEFL,
+                SAFFL,
+                AVISIT,
+                AVISITN,
+                ADY,
+                ADT,
+                VISIT,
+                VISITNUM,
+                PARAM,
+                PARAMCD,
+                PARAMN,
+                PARCAT1,
+                AVAL,
+                BASE,
+                CHG,
+                A1LO,
+                A1HI,
+                R2A1LO,
+                BR2A1LO,
+                BR2A1HI,
+                ANL01FL,
+                ALBTRVAL,
+                ANRIND,
+                BNRIND,
+                ABLFL,
+                AENTMTFL,
+                LBSEQ,
+                LBNRIND,
+                LBSTRESN)
+ xportr_write(adlbc, "adam/adlbc.xpt")
