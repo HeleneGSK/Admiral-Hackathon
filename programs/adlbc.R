@@ -16,7 +16,7 @@ lb1 <- lb %>%
 param_lookup <- tibble::tribble(
   ~LBTESTCD, ~PARAMCD, ~PARAM, ~PARAMN,
   "ALB", "ALB", "Albumin (g/L)", 1,
-  "ALP", "ALKPH", "Alkaline Phosphatase (U/L)", 2,
+  "ALP", "ALP", "Alkaline Phosphatase (U/L)", 2,
   "ALT", "ALT", "Alanine Aminotransferase (U/L)", 3,
   "ANISO", "ANISO", "Anisocytes", 4,
   "AST", "AST", "Aspartate Aminotransferase (U/L)", 5,
@@ -25,7 +25,7 @@ param_lookup <- tibble::tribble(
   "BILI", "BILI", "Bilirubin (umol/L)", 8,
   "BUN", "BUN", "Blood Urea Nitrogen (mmol/L)", 9,
   "CA", "CA", "Calcium (mmol/L)", 10,
-  "CHOL", "CHOLES", "Cholesterol (mmol/L)", 11,
+  "CHOL", "CHOL", "Cholesterol (mmol/L)", 11,
   "CK", "CK", "Creatinine Kinase (U/L)", 12,
   "CL", "CL", "Chloride (mmol/L)", 13,
   "COLOR", "COLOR", "Color", 14,
@@ -37,22 +37,22 @@ param_lookup <- tibble::tribble(
   "HBA1C", "HBA1C", "Hemoglobin A1C (1)", 20,
   "HCT", "HCT", "Hematocrit (1)", 21,
   "HGB", "HGB", "Hemoglobin (mmol/L)", 22,
-  "K", "POTAS", "Potassium (mmol/L)", 23,
-  "KETONES", "KETON", "Ketones", 24,
-  "LYM", "LYMPH", "Lymphocytes (10^9/L)", 25,
-  "LYMLE", "LYMPHLE", "Lymphocytes/Leukocytes (FRACTION)", 26,
-  "MACROCY", "MACROC", "Macrocytes", 27,
+  "K", "K", "Potassium (mmol/L)", 23,
+  "KETONES", "KETONES", "Ketones", 24,
+  "LYM", "LYM", "Lymphocytes (10^9/L)", 25,
+  "LYMLE", "LYMLE", "Lymphocytes/Leukocytes (FRACTION)", 26,
+  "MACROCY", "MACROCY", "Macrocytes", 27,
   "MCH", "MCH", "Ery. Mean Corpuscular Hemoglobin (fmol(Fe))", 28,
   "MCHC", "MCHC", "Ery. Mean Corpuscular HGB Concentration (mmol/L)", 29,
   "MCV", "MCV", "Ery. Mean Corpuscular Volume (f/L)", 30,
-  "MICROCY", "MICROC", "Microcytes", 31,
+  "MICROCY", "MICROCY", "Microcytes", 31,
   "MONO", "MONO", "Monocytes (10^9/L)", 32,
   "MONOLE", "MONOLE", "Monocytes/Leukocytes (FRACTION)", 33,
   "PH", "PH", "pH", 34,
   "PHOS", "PHOS", "Phosphate (mmol/L)", 35,
   "PLAT", "PLAT", "Platelet (10^9/L)", 36,
-  "POIKILO", "POIKIL", "Poikilocytes", 37,
-  "POLYCHR", "POLYCH", "Polychromasia", 38,
+  "POIKILO", "POIKILO", "Poikilocytes", 37,
+  "POLYCHR", "POLYCHR", "Polychromasia", 38,
   "PROT", "PROT", "Protein (g/L)", 39,
   "RBC", "RBC", "Erythrocytes (TI/L)", 40,
   "SODIUM", "SODIUM", "Sodium (mmol/L)", 41,
@@ -70,10 +70,10 @@ adsl <- read_xpt("adam/adsl.xpt")
 # Derivations ----
 
 # Get list of ADSL vars required for derivations
-# adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, AGEGR1, AGEGR1N, COMP24FL,
-#                   DSRAEFL, RACE, RACEN,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
-adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, COMP24FL,
-                  DSRAEFL, RACE,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
+adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, AGEGR1, AGEGR1N, COMP24FL,
+                  DSRAEFL, RACE, RACEN,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
+# adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, COMP24FL,
+#                   DSRAEFL, RACE,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
 
 adlb <- lb1 %>%
   # Join ADSL with LB (need TRTSDT for ADY derivation)
@@ -268,8 +268,8 @@ adlbc <- select(adlb,
                 TRTSDT,
                 TRTEDT,
                 AGE,
-                # AGEGR1,
-                # AGEGR1N,
+                AGEGR1,
+                AGEGR1N,
                 RACE,
                 RACEN,
                 SEX,
