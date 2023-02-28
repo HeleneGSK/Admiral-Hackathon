@@ -8,6 +8,9 @@ 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
 #new token:
 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
 
+# last token:
+  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
+
 gitcreds::gitcreds_set()
 
 usethis::use_github()
