@@ -294,27 +294,27 @@ adlbh <- adlbh %>%
  ## Flag variables (ANL01FL, LVOTFL) ----
  # ANL01FL: Flag last result within an AVISIT for post-baseline records
  # LVOTFL: Flag last valid on-treatment record
- # adlbh <- adlbh %>%
- #   restrict_derivation(
- #     derivation = derive_var_extreme_flag,
- #     args = params(
- #       by_vars = vars(USUBJID, PARAMCD, AVISIT),
- #       order = vars(ADT, AVAL),
- #       new_var = ANL01FL,
- #       mode = "last"
- #     ),
- #     filter = !is.na(AVISITN) & ONTRTFL == "Y"
- #   ) %>%
- #   restrict_derivation(
- #     derivation = derive_var_extreme_flag,
- #     args = params(
- #       by_vars = vars(USUBJID, PARAMCD),
- #       order = vars(ADT, AVAL),
- #       new_var = LVOTFL,
- #       mode = "last"
- #     ),
- #     filter = ONTRTFL == "Y"
- #   )
+ adlbh <- adlbh %>%
+   restrict_derivation(
+     derivation = derive_var_extreme_flag,
+     args = params(
+       by_vars = vars(USUBJID, PARAMCD, AVISIT),
+       order = vars(ADT, AVAL),
+       new_var = ANL01FL,
+       mode = "last"
+     ),
+     filter = !is.na(AVISITN) & ONTRTFL == "Y"
+   ) %>%
+   restrict_derivation(
+     derivation = derive_var_extreme_flag,
+     args = params(
+       by_vars = vars(USUBJID, PARAMCD),
+       order = vars(ADT, AVAL),
+       new_var = LVOTFL,
+       mode = "last"
+     ),
+     filter = ONTRTFL == "Y"
+   )
 
 ## Get extreme values ----
 adlbh <- adlbh %>%
