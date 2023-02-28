@@ -386,9 +386,12 @@ adlbh_fin2 <- adlbh_fin %>%
 
 
 # Apply label
-setwd("/cloud/project/metadata")
-adlbh_spec <-readxl::read_excel("specs.xlsx", sheet = "Variables")%>%
-  filter(Dataset == "ADLBH")
+# setwd("/cloud/project/metadata")
+# adlbh_spec <-readxl::read_excel("specs.xlsx", sheet = "Variables")%>%
+#   filter(Dataset == "ADLBH")
+
+ adlbh_spec <-readxl::read_excel("metadata/specs.xlsx", sheet = "Variables")%>%
+   filter(Dataset == "ADLBH")
 
 adlbh_spec <- subset(adlbh_spec, select = c(Dataset, Variable, Label))
 adlbh_spec <- rename(adlbh_spec, label=Label)
@@ -401,6 +404,6 @@ adlbh_fin2  <- adlbh_fin2 %>%
 
 
 # Export the HEM lab xpt file (adam.adlbh.xpt)
-setwd("/cloud/project/adam")
-xportr_write(adlbh_fin2, "adlbh.xpt")
-
+# setwd("/cloud/project/adam")
+# xportr_write(adlbh_fin2, "adlbh.xpt")
+ xportr_write(adlbh_fin2, "adam/adlbh.xpt")
