@@ -30,6 +30,7 @@ unique(lb$LBCAT)
 # lbh<-filter(lb,lbcat=="HEMATOLOGY")
 lbh <- lb %>%
   filter(LBCAT == "HEMATOLOGY")
+unique(lbh$LBCAT)
 
 # Look-up tables ----
 
@@ -94,7 +95,7 @@ param_lookup <- tibble::tribble(
 adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE,
                   COMP24FL, DSRAEFL, RACE, SAFFL, SEX, SUBJID,
                   TRT01AN, TRT01PN)
-adlb <- lbh %>%
+adlbh <- lbh %>%
   # Join ADSL with LB (need TRTSDT for ADY derivation)
   derive_vars_merged(
     dataset_add = adsl,
@@ -108,7 +109,7 @@ derive_vars_dt(
 ) %>%
   derive_vars_dy(reference_date = TRTSDT, source_vars = vars(ADT))
 
-adlb <- adlb %>%
+adlbh <- adlbh %>%
   ## Add PARAMCD PARAM and PARAMN - from LOOK-UP table ----
 # Replace with PARAMCD lookup function
 derive_vars_merged_lookup(
@@ -121,19 +122,30 @@ derive_vars_merged_lookup(
   ## Calculate PARCAT1 AVAL AVALC ANRLO ANRHI ----
 mutate(
   PARCAT1 = 'HEM',
-  AVAL = LBSTRESN,
+  AVAL  = LBSTRESN,
   AVALC = LBSTRESC,
   ANRLO = LBSTNRLO,
-  ANRHI = LBSTNRHI
+  ANRHI = LBSTNRHI,
+  A1LO = LBSTNRLO,
+  A1HI = LBSTNRHI
 )
-# Verification
-# adlb_t <- adlb %>% select(USUBJID,PARCAT1,PARAMCD,LBSTRESN,AVAL,LBSTRESC,AVALC,LBSTNRLO,ANRLO,LBSTNRHI,ANRHI)
+
+# RACEN management
+adlbh <- adlbh %>% mutate(
+  RACEN = case_when(
+    RACE %in% c("AMERICAN INDIAN OR ALASKA NATIVE") ~ 6,
+    RACE %in% c("ASIAN") ~ 3,
+    RACE %in% c("BLACK OR AFRICAN AMERICAN") ~ 2,
+    RACE %in% c("WHITE") ~ 1
+
+  )
+)
 
 # Derive Absolute values from fractional Differentials using WBC
 # Only derive where absolute values do not already exist
 # Need to populate ANRLO and ANRHI for newly created records
 
-# adlb <- adlb %>%
+# adlbh <- adlbh %>%
 #   # Derive absolute Basophils
 #   derive_param_wbc_abs(
 #     by_vars = vars(STUDYID, USUBJID, !!!adsl_vars, DOMAIN, VISIT, VISITNUM, ADT, ADY),
@@ -165,7 +177,10 @@ mutate(
 ## Get Visit Info ----
 # See also the "Visit and Period Variables" vignette
 # (https://pharmaverse.github.io/admiral/articles/visits_periods.html#visits)
-adlb <- adlb %>%
+
+adlbh <- subset(adlbh,!(VISIT %in% c("AMBUL ECG REMOVAL","RETRIEVAL")))
+
+adlbh <- adlbh %>%
   # Derive Timing
   mutate(
     AVISIT = case_when(
@@ -178,23 +193,222 @@ adlb <- adlb %>%
       !is.na(VISITNUM) ~ VISITNUM
     )
   )
-# Verification
-# adlb_t <- adlb %>% select(USUBJID,VISIT,VISITNUM, AVISIT, AVISITN)
+
+## BASE variable
+ # adlbh_bas <- adlbh %>%
+ #   mutate(BASE = if_else(ABLFL %in% "Y",adlbh$AVAL,0))
+ # adlbh_bas_t <- adlbh_bas %>% select(USUBJID,PARAMCD,AVISIT,AVAL,AVALC,ABLFL,BASE)
+
+adlbh <- adlbh %>%
+  ## Calculate ONTRTFL ----
+derive_var_ontrtfl(
+  start_date = ADT,
+  ref_start_date = TRTSDT,
+  ref_end_date = TRTEDT,
+  filter_pre_timepoint = AVISIT == "Baseline"
+)
+
 
 ## Calculate ANRIND : requires the reference ranges ANRLO, ANRHI ----
-adlb <- adlb %>%
+adlbh <- adlbh %>%
   derive_var_anrind()
 
+## Derive baseline flags ----
+adlbh <- adlbh %>%
+  # Calculate BASETYPE
+  mutate(
+    BASETYPE = "LAST"
+  ) %>%
+  # Calculate ABLFL
+  restrict_derivation(
+    derivation = derive_var_extreme_flag,
+    args = params(
+      by_vars = vars(STUDYID, USUBJID, BASETYPE, PARAMCD),
+      order = vars(ADT, VISITNUM, LBSEQ),
+      new_var = ABLFL,
+      mode = "last"
+    ),
+    filter = (!is.na(AVAL) & ADT <= TRTSDT & !is.na(BASETYPE))
+  )
+
+## Derive baseline information ----
+adlbh <- adlbh %>%
+  # Calculate BASE
+  derive_var_base(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    source_var = AVAL,
+    new_var = BASE
+  ) %>%
+  # Calculate BASEC
+  derive_var_base(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    source_var = AVALC,
+    new_var = BASEC
+  ) %>%
+  # Calculate BNRIND
+  derive_var_base(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    source_var = ANRIND,
+    new_var = BNRIND
+  ) %>%
+  # Calculate CHG
+  derive_var_chg() %>%
+  # Calculate PCHG
+  derive_var_pchg()
+
+ ## Calculate R2BASE, R2ANRLO and R2ANRHI ----
+ adlbh <- adlbh %>%
+   derive_var_analysis_ratio(
+     numer_var = AVAL,
+     denom_var = BASE,
+     new_var = CHG
+   ) %>%
+   derive_var_analysis_ratio(
+     numer_var = AVAL,
+     denom_var = A1LO,
+     new_var = R2A1LO
+   ) %>%
+   derive_var_analysis_ratio(
+     numer_var = AVAL,
+     denom_var = A1HI,
+     new_var = R2A1HI
+   )
+
+## Calculate R2BASE, R2ANRLO and R2ANRHI ----
+adlbh <- adlbh %>%
+  derive_var_analysis_ratio(
+    numer_var = BASE,
+    denom_var = A1LO,
+    new_var = BR2A1LO
+  ) %>%
+  derive_var_analysis_ratio(
+    numer_var = BASE,
+    denom_var = A1HI,
+    new_var = BR2A1HI
+  )
 
 
+ ## SHIFT derivation ----
+ adlbh <- adlbh %>%
+   # Derive shift from baseline for analysis indicator
+   derive_var_shift(
+     new_var = SHIFT1,
+     from_var = BNRIND,
+     to_var = ANRIND
+   )
+
+ ## Flag variables (ANL01FL, LVOTFL) ----
+ # ANL01FL: Flag last result within an AVISIT for post-baseline records
+ # LVOTFL: Flag last valid on-treatment record
+ adlbh <- adlbh %>%
+   restrict_derivation(
+     derivation = derive_var_extreme_flag,
+     args = params(
+       by_vars = vars(USUBJID, PARAMCD, AVISIT),
+       order = vars(ADT, AVAL),
+       new_var = ANL01FL,
+       mode = "last"
+     ),
+     filter = !is.na(AVISITN) & ONTRTFL == "Y"
+   ) %>%
+   restrict_derivation(
+     derivation = derive_var_extreme_flag,
+     args = params(
+       by_vars = vars(USUBJID, PARAMCD),
+       order = vars(ADT, AVAL),
+       new_var = LVOTFL,
+       mode = "last"
+     ),
+     filter = ONTRTFL == "Y"
+   )
+
+## Get extreme values ----
+adlbh <- adlbh %>%
+  # get MINIMUM value
+  derive_extreme_records(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    order = vars(AVAL, ADT, AVISITN),
+    mode = "first",
+    # "AVISITN < 9997" to evaluate only real visits
+    filter = (!is.na(AVAL) & ONTRTFL == "Y" & AVISITN < 9997),
+    set_values_to = vars(
+      AVISITN = 9997,
+      AVISIT = "POST-BASELINE MINIMUM",
+      DTYPE = "MINIMUM"
+    )
+  ) %>%
+  # get MAXIMUM value
+  derive_extreme_records(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    order = vars(desc(AVAL), ADT, AVISITN),
+    mode = "first",
+    # "AVISITN < 9997" to evaluate only real visits
+    filter = (!is.na(AVAL) & ONTRTFL == "Y" & AVISITN < 9997),
+    set_values_to = vars(
+      AVISITN = 9998,
+      AVISIT = "POST-BASELINE MAXIMUM",
+      DTYPE = "MAXIMUM"
+    )
+  ) %>%
+  # get LOV value
+  derive_extreme_records(
+    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
+    order = vars(ADT, AVISITN),
+    mode = "last",
+    # "AVISITN < 9997" to evaluate only real visits
+    filter = (ONTRTFL == "Y" & AVISITN < 9997),
+    set_values_to = vars(
+      AVISITN = 9999,
+      AVISIT = "POST-BASELINE LAST",
+      DTYPE = "LOV"
+    )
+  )
+
+# Rename variable to have correct ADLBH
+adlbh_l <- adlbh %>% rename(TRTA="TRT01A",
+                            TRTAN="TRT01AN",
+                            TRTP="TRT01P",
+                            TRTPN="TRT01PN"
+                     )
+
+# Verification
+# adlbh_fin <- adlbh_l %>%
+# select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
+#        AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
+#        AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
+#        PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
+#        BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
+#        LBNRIND, LBSTRESN)
+
+adlbh_fin <- adlbh_l %>%
+  select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
+         AGE, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
+         AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
+         PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
+         BR2A1HI, ANL01FL, ANRIND, BNRIND, ABLFL, LBSEQ,
+         LBNRIND, LBSTRESN)
+
+# Sort order
+adlbh_fin2 <- adlbh_fin %>%
+  arrange(USUBJID,PARAMCD, AVISITN, LBSEQ)
 
 
+# Apply label
+setwd("/cloud/project/metadata")
+adlbh_spec <-readxl::read_excel("specs.xlsx", sheet = "Variables")%>%
+  filter(Dataset == "ADLBH")
+
+adlbh_spec <- subset(adlbh_spec, select = c(Dataset, Variable, Label))
+adlbh_spec <- rename(adlbh_spec, label=Label)
+adlbh_spec <- rename(adlbh_spec, dataset=Dataset)
+adlbh_spec <- rename(adlbh_spec, variable=Variable)
 
 
-
-
+adlbh_fin2  <- adlbh_fin2 %>%
+  xportr_label(adlbh_spec, domain = "ADLBH") # Assigns variable label from metacore specifications
 
 
 # Export the HEM lab xpt file (adam.adlbh.xpt)
-# setwd("/cloud/project/adam")
-# xportr_write(adlbh, "adlbh.xpt")
+setwd("/cloud/project/adam")
+xportr_write(adlbh_fin2, "adlbh.xpt")
+
