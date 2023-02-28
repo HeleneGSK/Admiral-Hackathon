@@ -28,8 +28,8 @@ lbh <- lb %>%
   filter(LBCAT == "HEMATOLOGY")
 
 # import the lab xpt file (adam.adsl.xpt)
-#setwd("/cloud/project/adam")
-#adsl<-read_xpt("adsl.xpt")
+# setwd("/cloud/project/adam")
+# adsl<-read_xpt("adsl.xpt")
 adsl <- read_xpt("adam/adsl.xpt")
 
 # Look-up tables ----
@@ -332,7 +332,7 @@ adlbh <- adlbh %>%
     args = params(
       by_vars = vars(USUBJID, PARAMCD),
       order = vars(ADT, VISITNUM, LBSEQ),
-      new_var = AEMTMTFL,
+      new_var = AENTMTFL,
       mode = "last"
     ),
     filter = !is.na(AVAL) & VISITNUM < 13 & VISITNUM < 1
@@ -369,9 +369,9 @@ adlbh_fin2 <- adlbh_fin %>%
 
 
 # Apply label
-# setwd("/cloud/project/metadata")
-# adlbh_spec <-readxl::read_excel("specs.xlsx", sheet = "Variables")%>%
-#   filter(Dataset == "ADLBH")
+ # setwd("/cloud/project/metadata")
+ # adlbh_spec <-readxl::read_excel("specs.xlsx", sheet = "Variables")%>%
+ #   filter(Dataset == "ADLBH")
 
 adlbh_spec <-readxl::read_excel("metadata/specs.xlsx", sheet = "Variables")%>%
   filter(Dataset == "ADLBH")
