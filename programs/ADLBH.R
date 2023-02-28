@@ -9,7 +9,11 @@ library(xportr)
 library(metacore)
 library(metatools)
 
+#library(prettyR)
+
 # import the lab xpt file (sdtm.lb.xpt)
+# setwd("/cloud/project/sdtm")
+# lb<-read_xpt("lb.xpt")
 lb <- read_xpt("sdtm/lb.xpt")
 
 # When SAS datasets are imported into R using haven::read_sas(), missing
@@ -24,6 +28,8 @@ lbh <- lb %>%
   filter(LBCAT == "HEMATOLOGY")
 
 # import the lab xpt file (adam.adsl.xpt)
+#setwd("/cloud/project/adam")
+#adsl<-read_xpt("adsl.xpt")
 adsl <- read_xpt("adam/adsl.xpt")
 
 # Look-up tables ----
@@ -95,13 +101,14 @@ adlbh <- lbh %>%
     dataset_add = adsl,
     new_vars = adsl_vars,
     by_vars = vars(STUDYID, USUBJID)
-  ) %>%
-  ## Calculate ADT, ADY ----
-derive_vars_dt(
-  new_vars_prefix = "A",
-  dtc = LBDTC
-) %>%
-  derive_vars_dy(reference_date = TRTSDT, source_vars = vars(ADT))
+  )
+#%>%
+#   ## Calculate ADT, ADY ----
+# derive_vars_dt(
+#   new_vars_prefix = "A",
+#   dtc = LBDTC
+# ) %>%
+#   derive_vars_dy(reference_date = TRTSDT, source_vars = vars(ADT))
 
 adlbh <- adlbh %>%
   ## Add PARAMCD PARAM and PARAMN - from LOOK-UP table ----
@@ -120,8 +127,11 @@ mutate(
   AVALC = LBSTRESC,
   ANRLO = LBSTNRLO,
   ANRHI = LBSTNRHI,
-  A1LO = LBSTNRLO,
-  A1HI = LBSTNRHI
+  A1LO  = LBSTNRLO,
+  A1HI  = LBSTNRHI,
+  ABLFL = LBBLFL,
+  ADT   = LBDTC,
+  ADY   = LBDY
 )
 
 # RACEN management
@@ -207,23 +217,24 @@ derive_var_ontrtfl(
 adlbh <- adlbh %>%
   derive_var_anrind()
 
-## Derive baseline flags ----
+# Derive baseline flags ----
 adlbh <- adlbh %>%
   # Calculate BASETYPE
   mutate(
     BASETYPE = "LAST"
-  ) %>%
-  # Calculate ABLFL
-  restrict_derivation(
-    derivation = derive_var_extreme_flag,
-    args = params(
-      by_vars = vars(STUDYID, USUBJID, BASETYPE, PARAMCD),
-      order = vars(ADT, VISITNUM, LBSEQ),
-      new_var = ABLFL,
-      mode = "last"
-    ),
-    filter = (!is.na(AVAL) & ADT <= TRTSDT & !is.na(BASETYPE))
   )
+#%>%
+#   # Calculate ABLFL
+#   restrict_derivation(
+#     derivation = derive_var_extreme_flag,
+#     args = params(
+#       by_vars = vars(STUDYID, USUBJID, BASETYPE, PARAMCD),
+#       order = vars(ADT, VISITNUM, LBSEQ),
+#       new_var = ABLFL,
+#       mode = "last"
+#     ),
+#     filter = (!is.na(AVAL) & ADT <= TRTSDT & !is.na(BASETYPE))
+#   )
 
 ## Derive baseline information ----
 adlbh <- adlbh %>%
@@ -268,17 +279,12 @@ adlbh <- adlbh %>%
      new_var = R2A1HI
    )
 
-## Calculate R2BASE, R2ANRLO and R2ANRHI ----
+
+# BR2A1H1 - BR2A1LO  ----
 adlbh <- adlbh %>%
-  derive_var_analysis_ratio(
-    numer_var = BASE,
-    denom_var = A1LO,
-    new_var = BR2A1LO
-  ) %>%
-  derive_var_analysis_ratio(
-    numer_var = BASE,
-    denom_var = A1HI,
-    new_var = BR2A1HI
+  mutate(
+    BR2A1HI = BASE/A1LO,
+    BR2A1LO = BASE/A1HI
   )
 
 
@@ -291,9 +297,8 @@ adlbh <- adlbh %>%
      to_var = ANRIND
    )
 
- ## Flag variables (ANL01FL, LVOTFL) ----
+ ## Flag variables (ANL01FL) ----
  # ANL01FL: Flag last result within an AVISIT for post-baseline records
- # LVOTFL: Flag last valid on-treatment record
  adlbh <- adlbh %>%
    restrict_derivation(
      derivation = derive_var_extreme_flag,
@@ -303,60 +308,36 @@ adlbh <- adlbh %>%
        new_var = ANL01FL,
        mode = "last"
      ),
-     filter = !is.na(AVISITN) & ONTRTFL == "Y"
-   ) %>%
-   restrict_derivation(
-     derivation = derive_var_extreme_flag,
-     args = params(
-       by_vars = vars(USUBJID, PARAMCD),
-       order = vars(ADT, AVAL),
-       new_var = LVOTFL,
-       mode = "last"
-     ),
-     filter = ONTRTFL == "Y"
+     filter = !is.na(AVAL) & ONTRTFL == "Y"
    )
 
 ## Get extreme values ----
 adlbh <- adlbh %>%
-  # get MINIMUM value
-  derive_extreme_records(
-    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
-    order = vars(AVAL, ADT, AVISITN),
-    mode = "first",
-    # "AVISITN < 9997" to evaluate only real visits
-    filter = (!is.na(AVAL) & ONTRTFL == "Y" & AVISITN < 9997),
-    set_values_to = vars(
-      AVISITN = 9997,
-      AVISIT = "POST-BASELINE MINIMUM",
-      DTYPE = "MINIMUM"
-    )
-  ) %>%
   # get MAXIMUM value
   derive_extreme_records(
-    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
-    order = vars(desc(AVAL), ADT, AVISITN),
-    mode = "first",
-    # "AVISITN < 9997" to evaluate only real visits
-    filter = (!is.na(AVAL) & ONTRTFL == "Y" & AVISITN < 9997),
-    set_values_to = vars(
-      AVISITN = 9998,
-      AVISIT = "POST-BASELINE MAXIMUM",
-      DTYPE = "MAXIMUM"
-    )
-  ) %>%
-  # get LOV value
-  derive_extreme_records(
-    by_vars = vars(STUDYID, USUBJID, PARAMCD, BASETYPE),
-    order = vars(ADT, AVISITN),
+    by_vars = vars(STUDYID, USUBJID, PARAMCD),
+    order = vars(ADT, AVISITN,LBSEQ),
     mode = "last",
-    # "AVISITN < 9997" to evaluate only real visits
-    filter = (ONTRTFL == "Y" & AVISITN < 9997),
+    filter = (!is.na(AVAL) & AVISITN > 1 & AVISITN < 13),
     set_values_to = vars(
-      AVISITN = 9999,
-      AVISIT = "POST-BASELINE LAST",
-      DTYPE = "LOV"
+      AVISITN = 99,
+      AVISIT = "End of Treatment"
     )
   )
+
+# AEMTMTFL
+adlbh <- adlbh %>%
+  restrict_derivation(
+    derivation = derive_var_extreme_flag,
+    args = params(
+      by_vars = vars(USUBJID, PARAMCD),
+      order = vars(ADT, VISITNUM, LBSEQ),
+      new_var = AEMTMTFL,
+      mode = "last"
+    ),
+    filter = !is.na(AVAL) & VISITNUM < 13 & VISITNUM < 1
+  )
+
 
 # Rename variable to have correct ADLBH
 adlbh_l <- adlbh %>% rename(TRTA="TRT01A",
