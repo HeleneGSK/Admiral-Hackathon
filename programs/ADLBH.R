@@ -14,7 +14,7 @@ library(metatools)
 # import the lab xpt file (sdtm.lb.xpt)
 # setwd("/cloud/project/sdtm")
 # lb<-read_xpt("lb.xpt")
-lb <- read_xpt("sdtm/lb.xpt")
+ lb <- read_xpt("sdtm/lb.xpt")
 
 # When SAS datasets are imported into R using haven::read_sas(), missing
 # character values from SAS appear as "" characters in R, instead of appearing
@@ -30,7 +30,7 @@ lbh <- lb %>%
 # import the lab xpt file (adam.adsl.xpt)
 # setwd("/cloud/project/adam")
 # adsl<-read_xpt("adsl.xpt")
-adsl <- read_xpt("adam/adsl.xpt")
+ adsl <- read_xpt("adam/adsl.xpt")
 
 # Look-up tables ----
 
@@ -61,7 +61,7 @@ param_lookup <- tibble::tribble(
   "HGB", "HGB", "Hemoglobin (mmol/L)", 22,
   "K", "POTAS", "Potassium (mmol/L)", 23,
   "KETONES", "KETON", "Ketones", 24,
-  "LYM", "LYMPH", "Lymphocytes (10^9/L)", 25,
+  "LYM", "LYM", "Lymphocytes (10^9/L)", 25,
   "LYMLE", "LYMPHLE", "Lymphocytes/Leukocytes (FRACTION)", 26,
   "MACROCY", "MACROC", "Macrocytes", 27,
   "MCH", "MCH", "Ery. Mean Corpuscular Hemoglobin (fmol(Fe))", 28,
@@ -130,8 +130,10 @@ mutate(
   A1LO  = LBSTNRLO,
   A1HI  = LBSTNRHI,
   ABLFL = LBBLFL,
-  ADT   = LBDTC,
-  ADY   = LBDY
+  ADY   = LBDY,
+  ADT = as.numeric(ADT-as.Date('1960-01-01') ),
+  TRTEDT = as.numeric(TRTEDT-as.Date('1960-01-01') ),
+  TRTSDT= as.numeric(TRTSDT-as.Date('1960-01-01') )
 )
 
 # RACEN management
@@ -144,6 +146,16 @@ adlbh <- adlbh %>% mutate(
 
   )
 )
+
+# Creation ALBTRVAL
+adlbh <- adlbh %>%
+  mutate(ALBTRVAL1= ((1.5*A1HI)-LBSTRESN)
+  )
+adlbh <- adlbh %>%
+  mutate(ALBTRVAL2=  (LBSTRESN-(.5*A1LO))
+  )
+adlbh <- adlbh %>%
+  mutate(ALBTRVAL = if_else(ALBTRVAL1 >ALBTRVAL2 , ALBTRVAL1, ALBTRVAL2))
 
 # Derive Absolute values from fractional Differentials using WBC
 # Only derive where absolute values do not already exist
@@ -338,30 +350,48 @@ adlbh <- adlbh %>%
     filter = !is.na(AVAL) & VISITNUM < 13 & VISITNUM < 1
   )
 
+# change AVISITN
+adlbh <- adlbh %>%
+  mutate(
+    AVISITN = case_when(
+      VISITNUM == 12 ~ 24,
+      VISITNUM == 9 ~ 12,
+      VISITNUM == 4 ~ 2,
+      VISITNUM == 5 ~ 4,
+      VISITNUM == 7 ~ 6,
+      VISITNUM == 8 ~ 8,
+      VISITNUM == 10 ~ 16,
+      VISITNUM == 11 ~ 20,
+      VISITNUM == 13 ~ 26,
+
+    )
+  )
 
 # Rename variable to have correct ADLBH
-adlbh_l <- adlbh %>% rename(TRTA="TRT01A",
-                            TRTAN="TRT01AN",
-                            TRTP="TRT01P",
-                            TRTPN="TRT01PN"
-)
+adlbh_l <- adlbh %>%
+  rename(TRTA="TRT01A",
+         TRTAN="TRT01AN",
+         TRTP="TRT01P",
+         TRTPN="TRT01PN"
+  )
+
 
 # Verification
-# adlbh_fin <- adlbh_l %>%
-#   select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
-#          AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
-#          AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
-#          PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
-#          BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
-#          LBNRIND, LBSTRESN)
-
 adlbh_fin <- adlbh_l %>%
   select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
-         AGE, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
+         AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
          AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
          PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
-         BR2A1HI, ANL01FL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
+         BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
          LBNRIND, LBSTRESN)
+
+# adlbh_fin <- adlbh_l %>%
+#   select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
+#          AGE, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
+#          AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
+#          PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
+#          BR2A1HI, ANL01FL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
+#          LBNRIND, LBSTRESN)
 
 # Sort order
 adlbh_fin2 <- adlbh_fin %>%
