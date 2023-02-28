@@ -72,8 +72,9 @@ adsl <- read_xpt("adam/adsl.xpt")
 # Get list of ADSL vars required for derivations
 adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, AGEGR1, AGEGR1N, COMP24FL,
                   DSRAEFL, RACE, RACEN,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
-# adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, COMP24FL,
-#                   DSRAEFL, RACE,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
+# adsl_vars <- vars(TRTSDT, TRTEDT, TRT01A, TRT01P, AGE, COMP24FL,  DSRAEFL, RACE,SAFFL, SEX, SUBJID, TRT01AN, TRT01PN)
+
+
 
 adlb <- lb1 %>%
   # Join ADSL with LB (need TRTSDT for ADY derivation)
@@ -179,16 +180,31 @@ adlb <- adlb %>%
 
 
 ## Calculate ANRIND : requires the reference ranges ANRLO, ANRHI ----
-adlb <- adlb %>%
-  derive_var_anrind()
+# adlb <- adlb %>%
+#   derive_var_anrind()
+
+# if the AVAL is > 1.5*A1HI then set to 'H',
+# else if AVAL is <.5*A1LO then set to 'L',
+# else if AVAL between (.5*A1LO and 1.5*A1HI) then set to 'N',
 
 adlb <- adlb %>%
   mutate(
     ANRIND = case_when(
-      ANRIND == 'NORMAL' ~ 'N'
+      AVAL > 1.5*A1HI ~ 'H',
+      AVAL < 0.5*A1LO  ~ 'L',
+      TRUE ~'N'
 
     )
   )
+
+
+# adlb <- adlb %>%
+#   mutate(
+#     ANRIND = case_when(
+#       ANRIND == 'NORMAL' ~ 'N'
+#
+#     )
+#   )
 ## Derive baseline flags ----
 # adlb <- adlb %>%
 #   # Calculate BASETYPE
@@ -206,8 +222,28 @@ adlb <- adlb %>%
 #     ),
 #     filter = (!is.na(AVAL) & ADT <= TRTSDT & !is.na(BASETYPE))
 #   )
+
+
 adlb <- adlb %>%
   mutate(ABLFL = if_else(VISITNUM==1, 'Y', ''))
+
+adlb <- adlb %>%
+  mutate(
+    SCHED = case_when(
+      VISITNUM == 1 ~ 'Y',
+      VISITNUM == 9 ~ 'Y',
+      VISITNUM == 10 ~ 'Y',
+      VISITNUM == 4 ~ 'Y',
+      VISITNUM == 5 ~'Y',
+      VISITNUM == 7 ~ 'Y',
+      VISITNUM == 8 ~ 'Y',
+      VISITNUM == 11 ~ 'Y',
+      VISITNUM == 12 ~ 'Y',
+      VISITNUM == 13 ~ 'Y',
+
+    )
+  )
+
 
 adlb <- adlb %>%
   mutate(R2A1HI = AVAL/A1HI,
@@ -239,25 +275,14 @@ adlb <- adlb %>%
   derive_var_pchg()
 
 adlb <- adlb %>%
+  mutate(CHG = ifelse(VISITNUM==1, NA, CHG))
+
+adlb <- adlb %>%
   mutate(BR2A1HI = BASE/A1HI,
          BR2A1LO = BASE/A1LO)
 
-adlb <- adlb %>%
-  mutate(CHG = if_else(VISITNUM==1, NA, CHG))
 
-adlb <- adlb %>%
 
-  # Calculate AENTMTFL
-  restrict_derivation(
-    derivation = derive_var_extreme_flag,
-    args = params(
-      by_vars = vars(STUDYID, USUBJID,  PARAMCD),
-      order = vars(ADT, VISITNUM, LBSEQ),
-      new_var = AENTMTFL,
-      mode = "last"
-    ),
-    filter = (!is.na(AVAL) & VISITNUM <= 12 &  VISITNUM >= 2)
-  )
 
 adlb <- adlb %>%
 
@@ -266,38 +291,53 @@ adlb <- adlb %>%
     derivation = derive_var_extreme_flag,
     args = params(
       by_vars = vars(STUDYID, USUBJID,  PARAMCD),
-      order = vars(ADT, VISITNUM, LBSEQ),
+      order = vars(ALBTRVAL,desc(VISITNUM) ),
       new_var = ANL01FL,
       mode = "last"
     ),
-    filter = (!is.na(AVAL) & VISITNUM <= 12 &  VISITNUM >= 2)
+    filter = (!is.na(ALBTRVAL) & VISITNUM <= 12 &  VISITNUM >= 2  & !is.na(SCHED))
   )
 
+# adlb <- adlb %>%
+#
+#   # get MAXIMUM value
+#   derive_extreme_records(
+#     by_vars = vars(STUDYID, USUBJID, PARAMCD),
+#     order = vars(desc(ALBTRVAL), ADT, AVISITN, LBSEQ),
+#     mode = "first",
+#     filter = (!is.na(ALBTRVAL) & VISITNUM >= 2),
+#     set_values_to = vars(
+#       ANL01FL = 'Y'
+#     )
+#   )
 adlb <- adlb %>%
 
+  # Calculate AENTMTFL
+  restrict_derivation(
+    derivation = derive_var_extreme_flag,
+    args = params(
+      by_vars = vars(STUDYID, USUBJID,  PARAMCD),
+      order = vars( VISITNUM, LBSEQ),
+      new_var = AENTMTFL,
+      mode = "last"
+    ),
+    filter = ( VISITNUM <= 12 & VISITNUM >= 2  & !is.na(SCHED))
+  )
+
+
+adlb <- adlb %>%
   # get MAXIMUM value
   derive_extreme_records(
     by_vars = vars(STUDYID, USUBJID, PARAMCD),
-    order = vars(desc(ALBTRVAL), ADT, AVISITN),
-    mode = "first",
-    filter = (!is.na(ALBTRVAL) & VISITNUM >= 2),
-    set_values_to = vars(
-      ANL01FL = 'Y'
-    )
-  )
-
-adlb <- adlb %>%
-  # get MAXIMUM value
-  derive_extreme_records(
-    by_vars = vars(STUDYID, USUBJID, PARAMCD),
-    order = vars( ADT, VISITNUM),
+    order = vars( ADT, VISITNUM, LBSEQ),
     mode = "last",
-    filter = (!is.na(AVAL) & VISITNUM >= 2 & VISITNUM <= 12),
+    filter = ( VISITNUM >= 2 & VISITNUM <= 12 & !is.na(SCHED) ),
     set_values_to = vars(
       AVISITN = 99,
       AVISIT = "End of Treatment",
     )
   )
+
 
 adlbc <- select(adlb,
                 STUDYID,
@@ -346,6 +386,8 @@ adlbc <- select(adlb,
                 LBSEQ,
                 LBNRIND,
                 LBSTRESN)
+
+
 
 adlbc_spec <-readxl::read_excel("metadata/specs.xlsx", sheet = "Variables")%>%
   filter(Dataset == "ADLBC")
