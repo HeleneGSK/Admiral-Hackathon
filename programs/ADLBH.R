@@ -9,13 +9,8 @@ library(xportr)
 library(metacore)
 library(metatools)
 
-
 # import the lab xpt file (sdtm.lb.xpt)
-setwd("/cloud/project/sdtm")
-lb<-read_xpt("lb.xpt")
-
-setwd("/cloud/project/adam")
-adsl<-read_xpt("adsl.xpt")
+lb <- read_xpt("sdtm/lb.xpt")
 
 # When SAS datasets are imported into R using haven::read_sas(), missing
 # character values from SAS appear as "" characters in R, instead of appearing
@@ -23,8 +18,6 @@ adsl<-read_xpt("adsl.xpt")
 # https://pharmaverse.github.io/admiral/articles/admiral.html#handling-of-missing-values
 
 lb <- convert_blanks_to_na(lb)
-
-unique(lb$LBCAT)
 
 # lbh<-filter(lb,lbcat=="HEMATOLOGY")
 lbh <- lb %>%
