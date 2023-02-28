@@ -22,7 +22,9 @@ lb <- convert_blanks_to_na(lb)
 # lbh<-filter(lb,lbcat=="HEMATOLOGY")
 lbh <- lb %>%
   filter(LBCAT == "HEMATOLOGY")
-unique(lbh$LBCAT)
+
+# import the lab xpt file (adam.adsl.xpt)
+adsl <- read_xpt("adam/adsl.xpt")
 
 # Look-up tables ----
 
