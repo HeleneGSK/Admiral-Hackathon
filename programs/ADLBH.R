@@ -199,9 +199,9 @@ adlbh <- adlbh %>%
   )
 
 ## BASE variable
- # adlbh_bas <- adlbh %>%
- #   mutate(BASE = if_else(ABLFL %in% "Y",adlbh$AVAL,0))
- # adlbh_bas_t <- adlbh_bas %>% select(USUBJID,PARAMCD,AVISIT,AVAL,AVALC,ABLFL,BASE)
+# adlbh_bas <- adlbh %>%
+#   mutate(BASE = if_else(ABLFL %in% "Y",adlbh$AVAL,0))
+# adlbh_bas_t <- adlbh_bas %>% select(USUBJID,PARAMCD,AVISIT,AVAL,AVALC,ABLFL,BASE)
 
 adlbh <- adlbh %>%
   ## Calculate ONTRTFL ----
@@ -261,23 +261,23 @@ adlbh <- adlbh %>%
   # Calculate PCHG
   derive_var_pchg()
 
- ## Calculate R2BASE, R2ANRLO and R2ANRHI ----
- adlbh <- adlbh %>%
-   derive_var_analysis_ratio(
-     numer_var = AVAL,
-     denom_var = BASE,
-     new_var = CHG
-   ) %>%
-   derive_var_analysis_ratio(
-     numer_var = AVAL,
-     denom_var = A1LO,
-     new_var = R2A1LO
-   ) %>%
-   derive_var_analysis_ratio(
-     numer_var = AVAL,
-     denom_var = A1HI,
-     new_var = R2A1HI
-   )
+## Calculate R2BASE, R2ANRLO and R2ANRHI ----
+adlbh <- adlbh %>%
+  derive_var_analysis_ratio(
+    numer_var = AVAL,
+    denom_var = BASE,
+    new_var = CHG
+  ) %>%
+  derive_var_analysis_ratio(
+    numer_var = AVAL,
+    denom_var = A1LO,
+    new_var = R2A1LO
+  ) %>%
+  derive_var_analysis_ratio(
+    numer_var = AVAL,
+    denom_var = A1HI,
+    new_var = R2A1HI
+  )
 
 
 # BR2A1H1 - BR2A1LO  ----
@@ -288,28 +288,28 @@ adlbh <- adlbh %>%
   )
 
 
- ## SHIFT derivation ----
- adlbh <- adlbh %>%
-   # Derive shift from baseline for analysis indicator
-   derive_var_shift(
-     new_var = SHIFT1,
-     from_var = BNRIND,
-     to_var = ANRIND
-   )
+## SHIFT derivation ----
+adlbh <- adlbh %>%
+  # Derive shift from baseline for analysis indicator
+  derive_var_shift(
+    new_var = SHIFT1,
+    from_var = BNRIND,
+    to_var = ANRIND
+  )
 
- ## Flag variables (ANL01FL) ----
- # ANL01FL: Flag last result within an AVISIT for post-baseline records
- adlbh <- adlbh %>%
-   restrict_derivation(
-     derivation = derive_var_extreme_flag,
-     args = params(
-       by_vars = vars(USUBJID, PARAMCD, AVISIT),
-       order = vars(ADT, AVAL),
-       new_var = ANL01FL,
-       mode = "last"
-     ),
-     filter = !is.na(AVAL) & ONTRTFL == "Y"
-   )
+## Flag variables (ANL01FL) ----
+# ANL01FL: Flag last result within an AVISIT for post-baseline records
+adlbh <- adlbh %>%
+  restrict_derivation(
+    derivation = derive_var_extreme_flag,
+    args = params(
+      by_vars = vars(USUBJID, PARAMCD, AVISIT),
+      order = vars(ADT, AVAL),
+      new_var = ANL01FL,
+      mode = "last"
+    ),
+    filter = !is.na(AVAL) & ONTRTFL == "Y"
+  )
 
 ## Get extreme values ----
 adlbh <- adlbh %>%
@@ -344,24 +344,24 @@ adlbh_l <- adlbh %>% rename(TRTA="TRT01A",
                             TRTAN="TRT01AN",
                             TRTP="TRT01P",
                             TRTPN="TRT01PN"
-                     )
+)
 
 # Verification
-# adlbh_fin <- adlbh_l %>%
-# select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
-#        AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
-#        AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
-#        PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
-#        BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
-#        LBNRIND, LBSTRESN)
-
 adlbh_fin <- adlbh_l %>%
   select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
-         AGE, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
+         AGE, AGEGR1, AGEGR1N, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
          AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
          PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
-         BR2A1HI, ANL01FL, ANRIND, BNRIND, ABLFL, LBSEQ,
+         BR2A1HI, ANL01FL, ALBTRVAL, ANRIND, BNRIND, ABLFL, AENTMTFL, LBSEQ,
          LBNRIND, LBSTRESN)
+
+# adlbh_fin <- adlbh_l %>%
+#   select(STUDYID, SUBJID, USUBJID, TRTP, TRTPN, TRTA, TRTAN, TRTSDT, TRTEDT,
+#          AGE, RACE, RACEN, SEX, COMP24FL, DSRAEFL, SAFFL,
+#          AVISIT, AVISITN, ADY, ADT, VISIT, VISITNUM, PARAM, PARAMCD, PARAMN,
+#          PARCAT1, AVAL, BASE, CHG, A1LO, A1HI, R2A1LO, R2A1HI, BR2A1LO,
+#          BR2A1HI, ANL01FL, ANRIND, BNRIND, ABLFL, LBSEQ,
+#          LBNRIND, LBSTRESN)
 
 # Sort order
 adlbh_fin2 <- adlbh_fin %>%
@@ -373,8 +373,8 @@ adlbh_fin2 <- adlbh_fin %>%
 # adlbh_spec <-readxl::read_excel("specs.xlsx", sheet = "Variables")%>%
 #   filter(Dataset == "ADLBH")
 
- adlbh_spec <-readxl::read_excel("metadata/specs.xlsx", sheet = "Variables")%>%
-   filter(Dataset == "ADLBH")
+adlbh_spec <-readxl::read_excel("metadata/specs.xlsx", sheet = "Variables")%>%
+  filter(Dataset == "ADLBH")
 
 adlbh_spec <- subset(adlbh_spec, select = c(Dataset, Variable, Label))
 adlbh_spec <- rename(adlbh_spec, label=Label)
@@ -389,4 +389,5 @@ adlbh_fin2  <- adlbh_fin2 %>%
 # Export the HEM lab xpt file (adam.adlbh.xpt)
 # setwd("/cloud/project/adam")
 # xportr_write(adlbh_fin2, "adlbh.xpt")
- xportr_write(adlbh_fin2, "adam/adlbh.xpt")
+xportr_write(adlbh_fin2, "adam/adlbh.xpt")
+
