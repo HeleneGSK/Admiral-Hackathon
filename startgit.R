@@ -1,4 +1,4 @@
 
-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
+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
 gitcreds::gitcreds_set()
-usethis::use_git_config(user.name= "karine-GSK", user.email="karine.y.bourgeois@gsk.com")
+usethis::create_github_token()
